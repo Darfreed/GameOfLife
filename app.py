@@ -1,116 +1,283 @@
+# -*- coding: utf-8 -*-
 from tkinter import *
 from tkinter import messagebox, colorchooser
-from tkinter.filedialog import askopenfile,asksaveasfile
-from grafika import *
+#from dialogs import *
+from cells import *
+import random
+
 
 class MyApp:
     def __init__(self, parent):
-        self.color_fg = 'black'
-        self.color_bg = 'white'
-        self.x = 100
-        self.y = 100
-        self.shapes = []
-        self.shape = None
-        self.action = ""
+        self.color_bg = 'grey'
+        self.live_cell_color = 'black'
+        self.cell_color = 'white'
+        self.play = False
+        self.x = 0
+        self.y = 0 
+        self.template = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        
+        self.squares = []
+        self.square = None
         self.parent = parent
         self.drawWidgets()
 
     def drawWidgets(self):
         screen_width = self.parent.winfo_screenwidth()
         screen_height = self.parent.winfo_screenheight()
-        self.canvas = Canvas(self.parent, width=screen_width / 2, height=screen_height / 2, bg=self.color_bg)
-        self.canvas.pack(fill=BOTH,expand=True)
-        self.canvas.bind("<Motion>", self.on_mouse_move)
+        self.container = Frame(self.parent, width=500 , height=500)
+        self.canvas = Canvas(self.parent, width=500, height=500, bg=self.color_bg)
+        self.canvas.pack(fill=BOTH, expand=True)
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
-        self.canvas.bind("<B1-Motion>", self.on_move_press)
-        self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
+
+        button_start = Button(self.container, text="Start", command=self.start)
+        button_start.pack(side=LEFT)
+        button_new = Button(self.container, text="Nový", command=self.new)
+        button_new.pack(side=LEFT)
+
+        button_random = Button(self.container, text="Náhodně", command=self.random)
+        button_random.pack(side=RIGHT)
+        button_pulsar = Button(self.container, text="Pulzor", command=self.pulsar)
+        button_pulsar.pack(side=RIGHT)
+        button_oscillators = Button(self.container, text="Oscilátory", command=self.oscillators)
+        button_oscillators.pack(side=RIGHT) 
+        button_still = Button(self.container, text="Stálý život", command=self.still)
+        button_still.pack(side=RIGHT)
+
+        self.container.pack(fill=BOTH)
 
         self.canvas.focus_set()
 
         menu = Menu(self.parent)
         self.parent.config(menu=menu)
         filemenu = Menu(menu)
-        menu.add_cascade(label='Soubor',menu=filemenu)
-        filemenu.add_command(label='Otevřít...',command=self.open_file) 
-        filemenu.add_command(label='Uložit...',command=self.save_file)  
-        filemenu.add_command(label='Konec',command=self.parent.destroy)
+        menu.add_cascade(label='Menu', menu=filemenu)
+        filemenu.add_command(label='Konec', command=self.parent.destroy)
         canvasmenu = Menu(menu)
-        menu.add_cascade(label='Plátno',menu=canvasmenu)
-        canvasmenu.add_command(label='Barva pozadí',command=self.change_bg)
+        menu.add_cascade(label='Barvy', menu=canvasmenu)
+        canvasmenu.add_command(label='Barva plátna', command=self.change_bg)
+        canvasmenu.add_command(label='Barva polí', command=self.change_cell_color)
+        canvasmenu.add_command(label='Barva živých buňek', command=self.change_live_cell_color)
 
-    #dekodovani souboru json
-    def object_decoder(self, obj):
-        if obj['type'] == 'Rectangle':
-            shape = Rectangle(obj['_Shape__x'], obj['_Shape__y'])
-        if obj['type'] == 'Oval':
-            shape = Oval(obj['_Shape__x'], obj['_Shape__y'])
-        shape.width = obj['_Shape__width']
-        shape.height = obj['_Shape__height']
-        shape.outline_color = obj['outline_color']
-        shape.outline_width = obj['outline_width']
-        shape.fill = obj['fill']
-        return shape
 
-    #otevreni vnejsiho avatara
-    def open_file(self):
-        filetypes = [('Všechny soubory','*.*'),('JavaScript Object Notation','*.json')]
-        file = askopenfile(filetypes = filetypes, title = "Otevření souboru")
-        self.shapes = json.loads(file.read(),object_hook=self.object_decoder)
-        self.redraw_canvas()
-        pass
-    
-    #ulozeni avatara jako *.json
-    def save_file(self):
-        filetypes = [('Všechny soubory','*.*'),('JavaScript Object Notation','*.json'),('eXtesible Markup Language','*.xml')]
-        file = asksaveasfile(filetypes = filetypes, title = "Uložení souboru", initialdir = "./")
-        json_data = json.dumps([ob.__dict__ for ob in self.shapes])
-        file.write(json_data)
-        print(json_data)
-        pass 
+    def start(self):
+        self.play = True
+        self.game()
 
-    #change of background
+    def new(self):
+        self.play = False
+        for i in range(len(self.template)):  
+            for j in range(len(self.template[i])) :
+                self.template[i][j] = 0
+        self.create_game()
+
     def change_bg(self):  
         self.color_bg = colorchooser.askcolor(color=self.color_bg)[1]
-        self.canvas['bg']=self.color_bg
+        self.canvas['bg'] = self.color_bg
 
-    def redraw_canvas(self):  
+    def change_live_cell_color(self):
+        self.live_cell_color = colorchooser.askcolor(color=self.live_cell_color)[1]
+        pass
+
+    def change_cell_color(self):
+        self.cell_color = colorchooser.askcolor(color=self.cell_color)[1]
+        pass
+        
+
+    def clear_canvas(self):
+        self.canvas.delete("all")
+
+    def redraw_canvas(self):
         self.clear_canvas()
-        for shape in self.shapes:
-            shape.draw(self.canvas) 
-    
-    def on_mouse_move(self, event):
-        print("Pohyb myši nad canvasem")
-    
+        for square in self.squares:
+            square.draw(self.canvas)
+
+    def create_game(self):
+        self.squares = []
+        self.square = None
+        self.x = 0
+        self.y = 0
+        for i in range(len(self.template)):  
+            for j in range(len(self.template[i])): 
+                if self.template[i][j] == 0:
+                    self.square = Build(self.x, self.y)
+                if self.template[i][j] == 1:
+                    self.square = LiveCell(self.x, self.y)
+                self.squares.append(self.square)
+                self.x += DEFAULT_CONFIG["side"]
+            self.y += DEFAULT_CONFIG["side"]
+            self.x -= DEFAULT_CONFIG["side"] * len(self.template[i])
+        self.redraw_canvas()
+
+    def game(self):
+        new_template = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        for i in range(len(self.template)):  
+            for j in range(len(self.template[i])):
+                neighborhood = 0
+                for a in range(3):
+                    for b in range(3):
+                        if ((j-1+b) < len(self.template[i])) and ((j-1+b) >= 0) and ((i-1+a) < len(self.template)) and ((i-1+a) >= 0):
+                            if self.template[i-1+a][j-1+b] == 1:
+                                neighborhood += 1
+                if self.template[i][j] == 1:
+                    if neighborhood < 3:
+                        new_template[i][j] = 0
+                    if neighborhood == 3 or neighborhood == 4:
+                        new_template[i][j] = 1
+                    if neighborhood > 4:
+                        new_template[i][j] = 0
+                if self.template[i][j] == 0:
+                    if neighborhood == 3:
+                        new_template[i][j] = 1
+                    else:
+                        new_template[i][j] = 0
+        self.template = new_template
+        self.create_game()
+
+                    
+
     def on_button_press(self, event):
-        self.start_x = self.canvas.canvasx(event.x)
-        self.start_y = self.canvas.canvasx(event.y)
-        point = Point(self.start_x, self.start_y)
-        self.action == ""
-        for s in self.shapes:
-            if s.detect_cursor(point): 
-                self.shape = s
-                self.old_x = self.shape.x
-                self.old_y = self.shape.y
-                self.old_width = self.shape.width
-                self.old_height = self.shape.height
-                self.action = "edit"
-        print("Stisk levého tlačítka myši")
+        if self.play:
+            pass
+        else:
+            self.start_x = self.canvas.canvasx(event.x)
+            self.start_y = self.canvas.canvasx(event.y)
+            point = Point(self.start_x, self.start_y)
+            for s in self.squares:
+                if s.detect_cursor(point): 
+                    self.square = s 
+                    if self.square.fill_color == "white":
+                        self.square.fill_color = "black"
 
-    def on_move_press(self, event):
-        cur_x = self.canvas.canvasx(event.x)
-        cur_y = self.canvas.canvasy(event.y)
-        if (self.action == "new"):
-            self.shape.x = self.start_x if self.start_x <= cur_x else cur_x
-            self.shape.y = self.start_y if self.start_y <= cur_y else cur_y
-            self.shape.width = abs(self.start_x - cur_x)
-            self.shape.height = abs(self.start_y - cur_y)
-        print(cur_x , cur_y)
-        print("Tažení myši nad canvasem")
+                    elif self.square.fill_color == "black":
+                        self.square.fill_color = "white"
+            self.redraw_canvas()
 
-    def on_button_release(self, event):
-        self.action = ""
-        print("Uvolnění tlačíka myši")
+    def still(self):
+        self.template = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0],
+            [0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0],
+            [0,0,0,1,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0],
+            [0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        self.create_game()
+
+    def oscillators(self):
+        self.template = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],
+            [0,0,0,1,1,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0],
+            [0,0,0,0,1,1,1,0,0,0,0,0,0,1,0,0,1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0],
+            [0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        self.create_game()
+
+    def pulsar(self):
+        self.template = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        self.create_game()
+
+    def random(self):
+        for i in range(len(self.template)):  
+            for j in range(len(self.template[i])):
+                self.template[i][j] = random.randrange(0, 2)
+                print = random.randrange(0, 2)
+        self.create_game()
+
 
 root = Tk()
 myapp = MyApp(root)
+myapp.create_game()
 root.mainloop()
