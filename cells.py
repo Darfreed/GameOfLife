@@ -12,8 +12,6 @@ class Point():
     def __repr__(self):
         return "Point({}, {})".format(self.x, self.y)
         
-    def draw(self, canvas):       
-        return canvas.create_rectangle(self.x, self.y, self.x+10, self.y+10, fill=DEFAULT_CONFIG['fill'])
         
     def clone(self):
         other = Point(self.x,self.y)
@@ -31,6 +29,7 @@ class Square():
         self.outline_color = DEFAULT_CONFIG["outline"]
         self.outline_width = DEFAULT_CONFIG["width"]
         self.fill_color = DEFAULT_CONFIG["fill"]
+        self.live_cell_color = DEFAULT_CONFIG["live_cell_color"]
 
     def __repr__(self):
         return "Square(x: {}, y: {}, side: {}, fill_color: {} )".format(self.x, self.y, self.side, self.fill_color)

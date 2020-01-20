@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 from tkinter import *
 from tkinter import messagebox, colorchooser
-#from dialogs import *
+from dialogs import *
 from cells import *
+from tkinter.filedialog import askopenfile,asksaveasfile
+import json
 import random
 
 
@@ -15,6 +17,9 @@ class MyApp:
         self.play = False
         self.x = 0
         self.y = 0 
+        self.width = 20
+        self.height = 20
+        self.side = 25
         self.template = [
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -46,8 +51,8 @@ class MyApp:
     def drawWidgets(self):
         screen_width = self.parent.winfo_screenwidth()
         screen_height = self.parent.winfo_screenheight()
-        self.container = Frame(self.parent, width=500 , height=500)
-        self.canvas = Canvas(self.parent, width=500, height=500, bg=self.color_bg)
+        self.container = Frame(self.parent, width=len(self.template[0]) * DEFAULT_CONFIG["side"] , height=len(self.template) * DEFAULT_CONFIG["side"])
+        self.canvas = Canvas(self.parent, width=len(self.template[0]) * DEFAULT_CONFIG["side"] , height=len(self.template) * DEFAULT_CONFIG["side"], bg=self.color_bg)
         self.canvas.pack(fill=BOTH, expand=True)
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
 
@@ -66,11 +71,13 @@ class MyApp:
         menu = Menu(self.parent)
         self.parent.config(menu=menu)
         filemenu = Menu(menu)
-        menu.add_cascade(label='Menu', menu=filemenu)
+        menu.add_cascade(label='Soubor', menu=filemenu)
+        filemenu.add_command(label='Otevřít...',command=self.open_file) 
+        filemenu.add_command(label='Uložit...',command=self.save_file)
         filemenu.add_command(label='Konec', command=self.parent.destroy)
         canvasmenu = Menu(menu)
-        menu.add_cascade(label='Barvy', menu=canvasmenu)
-        canvasmenu.add_command(label='Barva plátna', command=self.change_bg)
+        menu.add_cascade(label='Pole', menu=canvasmenu)
+        canvasmenu.add_command(label='Velikost', command=self.w_params)
         canvasmenu.add_command(label='Barva polí', command=self.change_cell_color)
         canvasmenu.add_command(label='Barva živých buňek', command=self.change_live_cell_color)
         examplemenu = Menu(menu)
@@ -80,11 +87,30 @@ class MyApp:
         examplemenu.add_command(label='Lodě', command=self.ships)
         examplemenu.add_command(label='Náhodně', command=self.random)
 
+    #uložení pole v souboru json
+    def save_file(self):
+        self.play = False
+        filetypes = [('JavaScript Object Notation','*.json'),('Všechny soubory','*.*')]
+        file = asksaveasfile(filetypes = filetypes, title = "Uložení souboru", initialdir = "./")
+        json_data = json.dumps(self.template)
+        file.write(json_data)
+        pass
 
+    #otevření pole souboru json
+    def open_file(self):
+        self.play = False
+        filetypes = [('JavaScript Object Notation','*.json'),('Všechny soubory','*.*')]
+        file = askopenfile(filetypes = filetypes, title = "Otevření souboru")
+        self.template = json.loads(file.read())
+        self.create_game()
+        pass
+
+    #spusteni hry
     def start(self):
         self.play = True
         self.loop()
 
+    #vyčištění pole
     def new(self):
         self.generation = 0
         self.play = False
@@ -93,6 +119,7 @@ class MyApp:
                 self.template[i][j] = 0
         self.create_game()
     
+    #zastavení hry
     def pause(self):
         self.play = False
         self.loop()
@@ -102,19 +129,35 @@ class MyApp:
         self.color_bg = colorchooser.askcolor(color=self.color_bg)[1]
         self.canvas['bg'] = self.color_bg
 
+    #vytvoreni noveho pole
+    def create_template(self):
+        new_template = []
+        for i in range(self.height):
+            row = []
+            for j in range(self.width) :
+                row.append(0)
+            new_template.append(row)
+        return new_template
+
+    #změna parametru pole
+    def w_params(self):
+        self.play = False
+        self.generation = 0
+        dialog = ObjectDialog(self.parent, self)
+        self.parent.wait_window(dialog.top)
+        DEFAULT_CONFIG["side"] = self.side
+        self.template = self.create_template()
+        self.create_game()
+
     # změna barvy živých buněk - nefunguje
     def change_live_cell_color(self):
-        self.live_cell_color = colorchooser.askcolor(color=self.live_cell_color)[1]
-        for square in self.squares:
-            self.square.fill_color = self.live_cell_color
-        self.redraw_canvas()
+        DEFAULT_CONFIG["live_cell_color"] = colorchooser.askcolor(color=self.live_cell_color)[1]
+        self.create_game()
 
     # změna barvy mrtvých buněk - nefunguje
     def change_cell_color(self):
-        self.cell_color = colorchooser.askcolor(color=self.cell_color)[1]
-        for square in self.squares:
-            self.square.fill_color = self.cell_color
-        self.redraw_canvas()
+        DEFAULT_CONFIG["fill"] = colorchooser.askcolor(color=self.cell_color)[1]
+        self.create_game()
 
     # vyčištění plátna
     def clear_canvas(self):
@@ -126,7 +169,7 @@ class MyApp:
         for square in self.squares:
             square.draw(self.canvas)
 
-    # vytvoření pole
+    # vytvoření hry
     def create_game(self):
         self.squares = []
         self.square = None
@@ -146,28 +189,8 @@ class MyApp:
 
     # funkce hry
     def game(self):
-        new_template = [
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        ]
+        new_template = self.create_template()
+        
         for i in range(len(self.template)):  
             for j in range(len(self.template[i])):
                 # počítání živých buněk v poli 3x3 kolem aktulání buňky
@@ -181,10 +204,10 @@ class MyApp:
                             x = len(self.template)-1
                         else:
                             x = i-1+a
-                        if (j-1+b) > len(self.template)-1:
+                        if (j-1+b) > len(self.template[i])-1:
                             y = 0
                         elif (j-1+b) < 0:
-                            y = len(self.template)-1
+                            y = len(self.template[i])-1
                         else:
                             y = j-1+b
                         # počítání
@@ -204,7 +227,10 @@ class MyApp:
                         new_template[i][j] = 1
                     else:
                         new_template[i][j] = 0
-        self.template = new_template
+        if (self.template == new_template):
+            self.play = False
+        else:
+            self.template = new_template
         self.create_game()
 
     # časová smyčka
@@ -221,7 +247,7 @@ class MyApp:
         else:
             self.play = False
 
-    # kliknutí myší
+    # při kliknutí myší
     def on_button_press(self, event):
         if self.play:
             pass
@@ -232,12 +258,12 @@ class MyApp:
             for s in self.squares:
                 if s.detect_cursor(point): 
                     self.square = s
-                    if self.square.fill_color == "white":
+                    if self.square.fill_color == DEFAULT_CONFIG["fill"]:
                         x = int(round(self.square.x) / DEFAULT_CONFIG["side"])
                         y = int(round(self.square.y) / DEFAULT_CONFIG["side"])
                         self.template[y][x] = 1
 
-                    elif self.square.fill_color == "black":
+                    elif self.square.fill_color == DEFAULT_CONFIG["live_cell_color"]:
                         x = int(round(self.square.x) / DEFAULT_CONFIG["side"])
                         y = int(round(self.square.y) / DEFAULT_CONFIG["side"])
                         self.template[y][x] = 0
@@ -245,8 +271,9 @@ class MyApp:
 
     #předpřipravený template pro stálý život
     def still(self):
+        self.generation = 0
         self.play = False
-        self.template = [
+        template = [
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -268,12 +295,16 @@ class MyApp:
             [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         ]
+        for i in range(len(template)):  
+            for j in range(len(template[i])):
+                self.template[i][j] = template[i][j]
         self.create_game()
 
     #předpřipravený template pro oscilátory
     def oscillators(self):
+        self.generation = 0
         self.play = False
-        self.template = [
+        template = [
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
             [0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0],
@@ -295,12 +326,16 @@ class MyApp:
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         ]
+        for i in range(len(template)):  
+            for j in range(len(template[i])):
+                self.template[i][j] = template[i][j]
         self.create_game()
 
     #předpřipravený template pro pulzor
     def ships(self):
+        self.generation = 0
         self.play = False
-        self.template = [
+        template = [
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -322,15 +357,18 @@ class MyApp:
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         ]
+        for i in range(len(template)):  
+            for j in range(len(template[i])):
+                self.template[i][j] = template[i][j]
         self.create_game()
 
     #náhodný template
     def random(self):
+        self.generation = 0
         self.play = False
         for i in range(len(self.template)):  
             for j in range(len(self.template[i])):
                 self.template[i][j] = random.randrange(0, 2)
-                print = random.randrange(0, 2)
         self.create_game()
 
 
