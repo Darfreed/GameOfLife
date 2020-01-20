@@ -17,6 +17,8 @@ class MyApp:
         self.play = False
         self.x = 0
         self.y = 0 
+        self.label_generation = None
+
         self.width = 20
         self.height = 20
         self.side = 25
@@ -42,6 +44,7 @@ class MyApp:
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         ]
+
         self.generation = 0
         self.squares = []
         self.square = None
@@ -62,8 +65,8 @@ class MyApp:
         button_pause.pack(side=LEFT)
         button_new = Button(self.container, text="Nový", command=self.new)
         button_new.pack(side=LEFT)
-        label_generation = Label(self.container, text=f"Generace: {self.generation}")
-        label_generation.pack(side=RIGHT)
+        self.label_generation = Label(self.container, text=f"Generace: {self.generation}")
+        self.label_generation.pack(side=RIGHT)
 
         self.container.pack(fill=BOTH)
 
@@ -74,41 +77,55 @@ class MyApp:
         menu.add_cascade(label='Soubor', menu=filemenu)
         filemenu.add_command(label='Otevřít...',command=self.open_file) 
         filemenu.add_command(label='Uložit...',command=self.save_file)
+         
         filemenu.add_command(label='Konec', command=self.parent.destroy)
         canvasmenu = Menu(menu)
         menu.add_cascade(label='Pole', menu=canvasmenu)
-        canvasmenu.add_command(label='Velikost', command=self.w_params)
+        canvasmenu.add_command(label='Velikost pole', command=self.w_params)
         canvasmenu.add_command(label='Barva polí', command=self.change_cell_color)
         canvasmenu.add_command(label='Barva živých buňek', command=self.change_live_cell_color)
+        canvasmenu.add_command(label='Barva linek', command=self.change_outline_color)
+        canvasmenu.add_command(label='Barva pozadí', command=self.change_bg)
         examplemenu = Menu(menu)
         menu.add_cascade(label='Ukázky', menu=examplemenu)
-        examplemenu.add_command(label='Stálý život', command=self.still)
+        examplemenu.add_command(label='Zátiší', command=self.still)
         examplemenu.add_command(label='Oscilátory', command=self.oscillators)
         examplemenu.add_command(label='Lodě', command=self.ships)
         examplemenu.add_command(label='Náhodně', command=self.random)
+        menu.add_command(label='O programu',command=self.info)
 
     #uložení pole v souboru json
     def save_file(self):
         self.play = False
         filetypes = [('JavaScript Object Notation','*.json'),('Všechny soubory','*.*')]
         file = asksaveasfile(filetypes = filetypes, title = "Uložení souboru", initialdir = "./")
-        json_data = json.dumps(self.template)
+        #zapsání tříd do slovníku v json
+        json_data = json.dumps({"height":self.height,"width":self.width,"side":self.side,"data":self.template})
         file.write(json_data)
         pass
 
     #otevření pole souboru json
     def open_file(self):
         self.play = False
-        filetypes = [('JavaScript Object Notation','*.json'),('Všechny soubory','*.*')]
+        filetypes = [('Všechny soubory','*.*'),('JavaScript Object Notation','*.json')]
         file = askopenfile(filetypes = filetypes, title = "Otevření souboru")
-        self.template = json.loads(file.read())
+        json_data = json.loads(file.read())
+        #rozhození dat do tříd
+        self.width = json_data["width"]
+        self.height = json_data["height"]
+        self.side = json_data["side"]
+        self.template = json_data["data"]
+        self.generation = 0
         self.create_game()
         pass
 
     #spusteni hry
     def start(self):
-        self.play = True
-        self.loop()
+        if self.play:
+            pass
+        else:
+            self.play = True
+            self.loop()
 
     #vyčištění pole
     def new(self):
@@ -143,11 +160,17 @@ class MyApp:
     def w_params(self):
         self.play = False
         self.generation = 0
-        dialog = ObjectDialog(self.parent, self)
+        dialog = CellDialog(self.parent, self)
         self.parent.wait_window(dialog.top)
         DEFAULT_CONFIG["side"] = self.side
         self.template = self.create_template()
         self.create_game()
+
+    #informace
+    def info(self):
+        self.play = False
+        dialog = InfoDialog(self.parent)
+        pass
 
     # změna barvy živých buněk - nefunguje
     def change_live_cell_color(self):
@@ -157,6 +180,11 @@ class MyApp:
     # změna barvy mrtvých buněk - nefunguje
     def change_cell_color(self):
         DEFAULT_CONFIG["fill"] = colorchooser.askcolor(color=self.cell_color)[1]
+        self.create_game()
+
+    # změna barvy linek
+    def change_outline_color(self):
+        DEFAULT_CONFIG["outline"] = colorchooser.askcolor(color=self.cell_color)[1]
         self.create_game()
 
     # vyčištění plátna
@@ -169,12 +197,17 @@ class MyApp:
         for square in self.squares:
             square.draw(self.canvas)
 
+    # výpis generací
+    def generations(self):
+        self.label_generation.config(text=f"Generace: {self.generation}")
+
     # vytvoření hry
     def create_game(self):
         self.squares = []
         self.square = None
         self.x = 0
         self.y = 0
+        #procházení polí v template
         for i in range(len(self.template)):  
             for j in range(len(self.template[i])): 
                 if self.template[i][j] == 0:
@@ -190,7 +223,6 @@ class MyApp:
     # funkce hry
     def game(self):
         new_template = self.create_template()
-        
         for i in range(len(self.template)):  
             for j in range(len(self.template[i])):
                 # počítání živých buněk v poli 3x3 kolem aktulání buňky
@@ -210,7 +242,7 @@ class MyApp:
                             y = len(self.template[i])-1
                         else:
                             y = j-1+b
-                        # počítání
+                        # počítání sousedů (živých buňek)
                         if self.template[x][y] == 1:
                             neighborhood += 1
                 # pravidla pro živé buňky
@@ -239,11 +271,11 @@ class MyApp:
         for i in range(len(self.template)):  
             for j in range(len(self.template[i])):
                 n += 1 if self.template[i][j] == 1 else 0
-        print(self.generation)
+        self.generations()
         if self.play == True and n>0:
             self.generation += 1
             self.game()
-            root.after(250, self.loop)
+            root.after(200, self.loop)
         else:
             self.play = False
 
@@ -331,7 +363,7 @@ class MyApp:
                 self.template[i][j] = template[i][j]
         self.create_game()
 
-    #předpřipravený template pro pulzor
+    #předpřipravený template pro lodě
     def ships(self):
         self.generation = 0
         self.play = False
